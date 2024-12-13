@@ -1,0 +1,47 @@
+module mine_placement (
+    input wire clk,               // Clock input
+    input wire rst,               // Reset signal
+    input wire [3:0] sw,          // Switches to control number of mines (1-15)
+    input wire init_game,         // Signal to start mine placement
+    output reg [15:0] mine_map,   // Output showing mine locations (1 per grid position)
+    output reg placement_done     // Signal indicating mine placement is complete
+);
+
+    // LFSR for random number generation
+    reg [4:0] lfsr;
+    wire feedback;
+    reg [3:0] mine_count;
+    
+    // LFSR feedback polynomial: x^5 + x^3 + 1
+    assign feedback = lfsr[4] ^ lfsr[2];
+    
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            lfsr <= 5'h1F;         // Non-zero initial state
+            mine_count <= 4'b0;
+            mine_map <= 16'b0;
+            placement_done <= 1'b0;
+        end
+        else if (init_game && !placement_done) begin
+            // Only place mines if we haven't reached desired count
+            if (mine_count < sw && sw != 4'b0) begin
+                lfsr <= {lfsr[3:0], feedback};
+                
+                // Place mine if position is empty and valid
+                if (!mine_map[lfsr[3:0]]) begin
+                    mine_map[lfsr[3:0]] <= 1'b1;
+                    mine_count <= mine_count + 1'b1;
+                end
+            end
+            else begin
+                placement_done <= 1'b1;
+            end
+        end
+        else if (!init_game) begin
+            placement_done <= 1'b0;
+            mine_count <= 4'b0;
+            mine_map <= 16'b0;
+        end
+    end
+
+endmodule
